@@ -1,0 +1,89 @@
+use crate::ast::{QualifierType, VarDeclInfo, ExprResult, PrimitiveInfo, SignedPrimitiveInfo, OpType};
+use std::str::FromStr;
+
+grammar;
+
+// 1 + 10 - 5
+
+// #region Math
+
+// expr -> assignment
+// (a + b) = 10
+// 10 = 9
+// a  = b = v = 0
+
+// They could be reduced like so:
+//       Identifier "=" Expr "-" Factor
+//       ├─Assignment──────┤          │
+//       ├─Expr────────────┘          │
+//       └─Expr───────────────────────┘
+// 
+//     Alternatively, they could be reduced like so:
+//       Identifier "=" Expr "-" Factor
+
+//       │              └─Expr────────┤
+//       └─Assignment─────────────────┘
+
+//        a = 10 - 20
+//        if ((a = 10) - 20)
+
+pub Assignment: ExprResult = {
+    <i:Identifier> "=" <e:Expr> => ExprResult::Assignment(i, Box::new(e)),
+}
+
+pub Expr: ExprResult = {
+    #[precedence(level="1")]
+    Assignment,
+    #[precedence(level="0")]
+    <l:Expr> "+" <r:Factor> => ExprResult::ExprResult(Box::new(l), OpType::ADD, Box::new(r)),
+    #[precedence(level="0")]
+    <l:Expr> "-" <r:Factor> => ExprResult::ExprResult(Box::new(l), OpType::SUB, Box::new(r)),
+    #[precedence(level="0")]
+    Factor
+}
+
+pub Factor: ExprResult = {
+    <l:Factor> "*" <r:Term> => ExprResult::ExprResult(Box::new(l), OpType::MUL, Box::new(r)),
+    <l:Factor> "/" <r:Term> => ExprResult::ExprResult(Box::new(l), OpType::DIV, Box::new(r)),
+    Term
+}
+
+pub Term: ExprResult = {
+    "+" <pa:Primitive> => ExprResult::SignedPrimitive(SignedPrimitiveInfo(OpType::ADD, pa)),
+    "-" <ps:Primitive> => ExprResult::SignedPrimitive(SignedPrimitiveInfo(OpType::SUB, ps)),
+    Primitive => ExprResult::Primitive(<>),
+    Identifier => ExprResult::Identifier(<>),
+    "(" <Expr> ")"
+}
+// #endregion Math
+
+
+pub Primitive: PrimitiveInfo = {
+    "true" => PrimitiveInfo::Boolean(true),
+    "false" => PrimitiveInfo::Boolean(false),
+    "null" => PrimitiveInfo::Null,
+    "undefined" => PrimitiveInfo::Undefined,
+    r"-{0,1}[0-9]+" => PrimitiveInfo::Number(i64::from_str(<>).unwrap()),
+    // Regex to find a string
+    <s:r"\x22(\$\{.*\}|\\.|[^\x22\\])*\x22"> => {
+        let l = s.len();
+        return PrimitiveInfo::String(s[1..l-1].to_string())
+    },
+}
+
+// #region Variables
+pub Qualifier: QualifierType = {
+    "const" => QualifierType::CONST,
+    "let" => QualifierType::LET,
+    "var" => QualifierType::VAR,
+};
+
+pub Identifier: String = {
+    r"[A-Za-z]{1}[A-za-z0-9]*" => <>.to_string(),
+};
+
+pub VarDecl: VarDeclInfo = {
+    <q:Qualifier> <v:Identifier> ":" <m:Identifier> "=" <e:Expr> => VarDeclInfo(q, v, Some(m), e),
+    <q1:Qualifier> <v1:Identifier> "=" <e1:Expr> => VarDeclInfo(q1, v1, None, e1),
+}
+// #region Variables
