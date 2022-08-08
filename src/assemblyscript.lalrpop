@@ -3,29 +3,7 @@ use std::str::FromStr;
 
 grammar;
 
-// 1 + 10 - 5
-
 // #region Math
-
-// expr -> assignment
-// (a + b) = 10
-// 10 = 9
-// a  = b = v = 0
-
-// They could be reduced like so:
-//       Identifier "=" Expr "-" Factor
-//       ├─Assignment──────┤          │
-//       ├─Expr────────────┘          │
-//       └─Expr───────────────────────┘
-// 
-//     Alternatively, they could be reduced like so:
-//       Identifier "=" Expr "-" Factor
-
-//       │              └─Expr────────┤
-//       └─Assignment─────────────────┘
-
-//        a = 10 - 20
-//        if ((a = 10) - 20)
 
 pub Assignment: ExprResult = {
     <i:Identifier> "=" <e:Expr> => ExprResult::Assignment(i, Box::new(e)),
